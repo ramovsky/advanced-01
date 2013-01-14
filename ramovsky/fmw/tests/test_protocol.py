@@ -7,8 +7,8 @@ class Base(unittest.TestCase):
 
     def test_lol(self):
         p = Ping()
-        PingD(lol=1)
-        print('types', p.__class__.types)
+        pd = PingD(data='1', command=4)
+        pd.to_bytes()
 
 
 if __name__ == '__main__':

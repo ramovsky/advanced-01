@@ -15,11 +15,14 @@ class Field:
     def __set__(self, instance, value):
         if value.__class__ != self.type:
             raise ImplemetatinoError('Wrong type')
-        setattr(instance, self.name, value)
+        instance.__dict__[self.name] = value
 
 
 class Cmd(Field):
     type = int
+
+    def __init__(self, id):
+        self.id = id
 
 
 class Str(Field):
@@ -33,12 +36,17 @@ class PacketMeta(type):
     def __init__(self, name, bases, dct):
         if dct.get('abstract'):
             return
-        self.fields = OrderedDict()
+        self._fields = OrderedDict()
         command = dct.pop('command')
+        if not isinstance(command, Cmd):
+           raise ImplemetatinoError('Wrong command type')
+        if command.id in self.__class__.types:
+           raise ImplemetatinoError('Duplicated command id %d' % command)
+        self.__class__.types[command.id] = self
         for k, v in dct.items():
-            if not k.startswith('__'):
-                self.fields[v.name] = v
-        self.__class__.types[command] = self
+            if isinstance(v, Field):
+                v.name = k
+                self._fields[k] = v
 
     @classmethod
     def __prepare__(cls, name, base):
@@ -50,22 +58,28 @@ class PacketBase(metaclass=PacketMeta):
     abstract = True
 
     def __init__(self, **kw):
-        pass
+        for name, field in self._fields.items():
+            field.__set__(self, kw[name])
 
     @classmethod
-    def create(bytes):
+    def from_bytes(bytes):
         pass
+
+    def to_bytes(self):
+        for k, v in self._fields.items():
+            print('vals', k, v)
+
 
 
 class Ping(PacketBase):
 
-    command = 1
+    command = Cmd(1)
 
 
 class PingD(PacketBase):
 
-    command = 2
-
+    command = Cmd(2)
+    data = Str()
 
 
 class Feeder:
