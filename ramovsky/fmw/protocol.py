@@ -10,7 +10,7 @@ class Field:
     def __get__(self, instance, owner):
         if instance is None:
             return self
-        return getattr(instance, self.name)
+        return instance.__dict__[self.name]
 
     def __set__(self, instance, value):
         if value.__class__ != self.type:
@@ -18,15 +18,35 @@ class Field:
         instance.__dict__[self.name] = value
 
 
-class Cmd(Field):
+class Int(Field):
+    type = int
+
+    @staticmethod
+    def to_bytes(value):
+        return value.to_bytes(4, 'big')
+
+    @staticmethod
+    def from_bytes(value):
+        return int.from_bytes(value[:4], 'big'), value[4:]
+
+
+class Cmd(Int):
     type = int
 
     def __init__(self, id):
-        self.id = id
+        self.__dict__['id'] = id
 
 
 class Str(Field):
     type = str
+
+    @staticmethod
+    def to_bytes(value):
+        return value.encode('utf-8')
+
+    @staticmethod
+    def from_bytes(value):
+        return value.decode('utf-8')
 
 
 class PacketMeta(type):
@@ -37,7 +57,7 @@ class PacketMeta(type):
         if dct.get('abstract'):
             return
         self._fields = OrderedDict()
-        command = dct.pop('command')
+        command = dct.get('command')
         if not isinstance(command, Cmd):
            raise ImplemetatinoError('Wrong command type')
         if command.id in self.__class__.types:
@@ -53,30 +73,41 @@ class PacketMeta(type):
         return OrderedDict()
 
 
-class PacketBase(metaclass=PacketMeta):
+class Packet(metaclass=PacketMeta):
 
     abstract = True
 
     def __init__(self, **kw):
-        for name, field in self._fields.items():
-            field.__set__(self, kw[name])
+        cmd, *fields = self._fields.keys()
+        id = self._fields[cmd].id
+        setattr(self, cmd, id)
+        for field in fields:
+            setattr(self, field, kw[field])
 
     @classmethod
-    def from_bytes(bytes):
-        pass
+    def from_bytes(cls, bytes):
+        cmd, data = Int.from_bytes(bytes)
+        packet_cls = cls.__class__.types[cmd]
+        dct = {}
+        for k, type in packet_cls._fields.items():
+            val, bytes = type.from_bytes(bytes)
+            dct[k] = val
+        return packet_cls(**dct)
 
     def to_bytes(self):
+        buf = b''
         for k, v in self._fields.items():
-            print('vals', k, v)
+            buf += v.to_bytes(getattr(self, k))
+        return Int.to_bytes(len(buf)) + buf
 
 
 
-class Ping(PacketBase):
+class Ping(Packet):
 
     command = Cmd(1)
 
 
-class PingD(PacketBase):
+class PingD(Packet):
 
     command = Cmd(2)
     data = Str()
