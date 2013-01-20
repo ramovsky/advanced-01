@@ -1,6 +1,11 @@
 from collections import OrderedDict
 
 
+__all__ = (
+    'ImplemetatinoError',
+    'Packet',
+    )
+
 class ImplemetatinoError(Exception): pass
 
 
@@ -17,6 +22,10 @@ class Field:
             raise ImplemetatinoError('Wrong type')
         instance.__dict__[self.name] = value
 
+    def __repr__(self):
+        rep = str(self.__class__) + 'fields: '
+        rep += ','.join('{}={}'.format(k, v) for k, v in self.__dict__.items())
+        return rep
 
 class Int(Field):
     type = int
@@ -61,7 +70,7 @@ class PacketMeta(type):
         if not isinstance(command, Cmd):
            raise ImplemetatinoError('Wrong command type')
         if command.id in self.__class__.types:
-           raise ImplemetatinoError('Duplicated command id %d' % command)
+           raise ImplemetatinoError('Duplicated command id %s' % command)
         self.__class__.types[command.id] = self
         for k, v in dct.items():
             if isinstance(v, Field):
@@ -100,17 +109,6 @@ class Packet(metaclass=PacketMeta):
             buf += v.to_bytes(getattr(self, k))
         return Int.to_bytes(len(buf)) + buf
 
-
-
-class Ping(Packet):
-
-    command = Cmd(1)
-
-
-class PingD(Packet):
-
-    command = Cmd(2)
-    data = Str()
 
 
 class Feeder:

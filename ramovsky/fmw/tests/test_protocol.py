@@ -1,11 +1,11 @@
 import unittest
 
-from protocol import *
+from fmw.commands import *
 
 
 class Base(unittest.TestCase):
 
-    def test_lol(self):
+    def test_basic(self):
         p = Ping()
         print(p.to_bytes())
 
