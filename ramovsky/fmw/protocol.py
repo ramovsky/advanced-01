@@ -27,6 +27,7 @@ class Field:
         rep += ','.join('{}={}'.format(k, v) for k, v in self.__dict__.items())
         return rep
 
+
 class Int(Field):
     type = int
 
@@ -55,7 +56,7 @@ class Str(Field):
 
     @staticmethod
     def from_bytes(value):
-        return value.decode('utf-8')
+        return value.decode('utf-8'), b''
 
 
 class PacketMeta(type):
@@ -109,6 +110,8 @@ class Packet(metaclass=PacketMeta):
             buf += v.to_bytes(getattr(self, k))
         return Int.to_bytes(len(buf)) + buf
 
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
 
 
 class Feeder:

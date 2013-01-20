@@ -31,7 +31,7 @@ class Connect(Packet):
     command = Cmd(CONNECT)
 
     def reply(self):
-        return Pong().to_bytes()
+        return Connected().to_bytes()
 
 
 class Connected(Packet):
@@ -72,7 +72,7 @@ class Quit(Packet):
     command = Cmd(QUIT)
 
     def reply(self):
-        return Ackquit().to_bytes()
+        return AckQuit().to_bytes()
 
 
 class AckQuit(Packet):
@@ -85,7 +85,7 @@ class Finish(Packet):
     command = Cmd(FINISH)
 
     def reply(self):
-        return Ackfinish().to_bytes()
+        return AckFinish().to_bytes()
 
 
 class AckFinish(Packet):
