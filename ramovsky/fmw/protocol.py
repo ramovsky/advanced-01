@@ -128,5 +128,7 @@ class Feeder:
             self.length = int.from_bytes(buffer[:4], byteorder='big')
             buffer = buffer[4:]
         if self.length and self.length <= len(buffer):
-            return Packet.from_bytes(buffer[:self.length]), buffer[self.length:]
+            l = self.length
+            self.length = None
+            return Packet.from_bytes(buffer[:l]), buffer[l:]
         return None, buffer

@@ -113,6 +113,16 @@ class TestFeeder(TestCase):
         self.assertEqual(pck, Connect())
         self.assertEqual(b'', buf)
 
+        self.connection.recv.return_value = b'\x00\x00\x00\x01'
+        pck, buf = self.feeder.feed(b'\x00\x00\x00\x04')
+        self.assertEqual(pck, Connect())
+        self.assertEqual(b'', buf)
+
+        self.connection.recv.return_value = b''
+        pck, buf = self.feeder.feed(b'\x00\x00\x00\x08\x00\x00\x00\x05data')
+        self.assertEqual(pck, PingD(data='data'))
+        self.assertNotEqual(pck, PingD(data=''))
+
 
 if __name__ == '__main__':
     unittest.main()
