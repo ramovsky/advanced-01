@@ -1,9 +1,24 @@
 import unittest
+from unittest import TestCase
+from unittest.mock import Mock
 
 from fmw.commands import *
+from fmw.protocol import Cmd, Str, ImplemetatinoError, Feeder
 
 
-class Base(unittest.TestCase):
+class Testackets(TestCase):
+
+    def test_raises(self):
+        with self.assertRaises(ImplemetatinoError):
+            class Dup(Packet):
+                command = Cmd(1)
+
+        with self.assertRaises(ImplemetatinoError):
+            class NoCmd(Packet):
+                data = Str()
+
+        with self.assertRaises(ImplemetatinoError):
+            p = PingD(data=1)
 
     def test_to_bytes(self):
         p1 = Connect()
@@ -81,6 +96,22 @@ class Base(unittest.TestCase):
         self.assertEqual(
             Packet.from_bytes(b'\x00\x00\x00\x0a'),
             AckFinish())
+
+
+class TestFeeder(TestCase):
+
+    def setUp(self):
+        self.connection = Mock()
+        self.feeder = Feeder(self.connection)
+
+    def test_feeder(self):
+        self.connection.recv.return_value = b''
+        self.assertEqual((None, b''), self.feeder.feed(b''))
+
+        self.connection.recv.return_value = b'\x00\x00\x00\x04\x00\x00\x00\x01'
+        pck, buf = self.feeder.feed(b'')
+        self.assertEqual(pck, Connect())
+        self.assertEqual(b'', buf)
 
 
 if __name__ == '__main__':

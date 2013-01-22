@@ -4,6 +4,7 @@ from collections import OrderedDict
 __all__ = (
     'ImplemetatinoError',
     'Packet',
+    'Feeder'
     )
 
 class ImplemetatinoError(Exception): pass
@@ -119,12 +120,13 @@ class Feeder:
     def __init__(self, connection):
         self.connection = connection
         self.buffer = []
-        self.packet_length = None
+        self.length = None
 
-    def feed(self):
-        self.buffer += self.connection.recv(1024)
-        if self.packet_length is None and len(self.buffer) > 2:
-            self.packet_length = int.from_bytes(self.buffer[:2], byteorder='little')
-            self.buffer = self.buffer[2:]
-        if self.packet_length and self.packet_length <= len(self.buffer):
-            return Packet(self.buffer[:self.packet_length])
+    def feed(self, buffer):
+        buffer += self.connection.recv(1024)
+        if self.length is None and len(buffer) > 4:
+            self.length = int.from_bytes(buffer[:4], byteorder='big')
+            buffer = buffer[4:]
+        if self.length and self.length <= len(buffer):
+            return Packet.from_bytes(buffer[:self.length]), buffer[self.length:]
+        return None, buffer
