@@ -1,6 +1,6 @@
 import socket
 import signal
-from threading import Thread
+import select
 from argparse import ArgumentParser
 
 
@@ -15,82 +15,46 @@ def get_options():
     return ap
 
 
-class Loop(Thread):
+serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+serversocket.bind(('0.0.0.0', 8080))
+serversocket.listen(1)
+serversocket.setblocking(0)
 
-    def __init__(self, srv, conn, addr):
-        self.conn = conn
-        self.addr = addr
-        self.srv = srv
-        self.running = True
-        super().__init__()
+epoll = select.epoll()
+epoll.register(serversocket.fileno(), select.EPOLLIN)
 
-    def run(self):
-        print('Connected by', self.addr)
-        while self.running:
-            if not self.srv.running:
-                self.conn.sendall(b'ackfinish')
-                self.running = False
-                break
-            try:
-                packet = self.conn.recv(1024)
-            except socket.timeout:
-                continue
-            if not packet: continue
-            cmd, *data = packet.split(b' ')
-            print('got command', cmd, data)
-            if cmd == b'connect':
-                self.conn.sendall(b'connected')
-            elif cmd == b'ping':
-                self.conn.sendall(b'pong')
-            elif cmd == b'pingd':
-                if not data:
-                    data = b'data not send'
-                else:
-                    data = b' '.join(data)
-                self.conn.sendall(b'pongd '+data)
-            elif cmd == b'quit':
-                self.conn.sendall(b'ackquit')
-                self.running = False
-                break
-            elif cmd == b'finish':
-                self.srv.running = False
-            else:
-                self.conn.sendall(b'unknown command')
-
-        self.conn.close()
-
-
-class Server:
-
-    def __init__(self, host, port):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((host, port))
-        s.settimeout(1.0)
-        self.socket = s
-        self.running = True
-        self.clients = {}
-        print('Started server {}:{}'.format(host, port))
-
-    def run(self):
-        while self.running:
-            self.socket.listen(1)
-            try:
-                conn, addr = self.socket.accept()
-                conn.settimeout(.1)
-                cli = Loop(self, conn, addr)
-                cli.start()
-                self.clients[addr] = cli
-            except (socket.error, socket.timeout):
-                pass
-
-        for c in self.clients.values():
-            c.join()
-        self.socket.close()
-
-    def kill(self, signum, frame):
-        print('Signal handler called with signal', signum)
-        self.running = False
+try:
+   connections = {}; requests = {}; responses = {}
+   while True:
+      events = epoll.poll(1)
+      for fileno, event in events:
+         if fileno == serversocket.fileno():
+            connection, address = serversocket.accept()
+            connection.setblocking(0)
+            epoll.register(connection.fileno(), select.EPOLLIN)
+            connections[connection.fileno()] = connection
+            requests[connection.fileno()] = b''
+            responses[connection.fileno()] = response
+         elif event & select.EPOLLIN:
+            requests[fileno] += connections[fileno].recv(1024)
+            if EOL1 in requests[fileno] or EOL2 in requests[fileno]:
+               epoll.modify(fileno, select.EPOLLOUT)
+               print('-'*40 + '\n' + requests[fileno].decode()[:-2])
+         elif event & select.EPOLLOUT:
+            byteswritten = connections[fileno].send(responses[fileno])
+            responses[fileno] = responses[fileno][byteswritten:]
+            if len(responses[fileno]) == 0:
+               epoll.modify(fileno, 0)
+               connections[fileno].shutdown(socket.SHUT_RDWR)
+         elif event & select.EPOLLHUP:
+            epoll.unregister(fileno)
+            connections[fileno].close()
+            del connections[fileno]
+finally:
+   epoll.unregister(serversocket.fileno())
+   epoll.close()
+   serversocket.close()
 
 
 if __name__ == '__main__':
